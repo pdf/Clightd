@@ -35,9 +35,9 @@ $(info Frames capturing support disabled.)
 endif
 
 ifneq ("$(DISABLE_GAMMA)","1")
-GAMMA=$(shell pkg-config --silence-errors --libs x11 xrandr)
+GAMMA=$(shell pkg-config --silence-errors --libs x11 xrandr libdrm)
 ifneq ("$(GAMMA)","")
-CFLAGS+=-DGAMMA_PRESENT $(shell pkg-config --cflags x11 xrandr)
+CFLAGS+=-DGAMMA_PRESENT $(shell pkg-config --cflags x11 xrandr libdrm)
 LIBS+=$(GAMMA)
 $(info Gamma support enabled.)
 else

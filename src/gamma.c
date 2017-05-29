@@ -9,6 +9,12 @@
 #include "../inc/polkit.h"
 #include <X11/extensions/Xrandr.h>
 #include <math.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
 
 static unsigned short clamp(double x, double max);
 static unsigned short get_red(int temp);
@@ -166,79 +172,97 @@ static int get_temp(const unsigned short R, const unsigned short B) {
     return temperature;
 }
 
-static void set_gamma(const char *display, const char *xauthority, int temp, int *err) {
-    /* set xauthority cookie */
-    setenv("XAUTHORITY", xauthority, 1);
-    
-    Display *dpy = XOpenDisplay(display);
-    if (dpy == NULL) {
-        perror("XopenDisplay");
-        *err = ENXIO;
-        goto end;
+int drm_set_temperature(int temp) {
+    int fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        perror("open");
     }
-
-    int screen = DefaultScreen(dpy);
-    Window root = RootWindow(dpy, screen);
-
-    XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
-    
-    double red = get_red(temp) / (double)255;
-    double green = get_green(temp) / (double)255;
-    double blue = get_blue(temp) / (double)255;
         
-    for (int i = 0; i < res->ncrtc; i++) {
-        int crtcxid = res->crtcs[i];
-        int size = XRRGetCrtcGammaSize(dpy, crtcxid);
-        XRRCrtcGamma *crtc_gamma = XRRAllocGamma(size);
-        for (int j = 0; j < size; j++) {
-            double g = 65535.0 * j / size;
-            crtc_gamma->red[j] = g * red;
-            crtc_gamma->green[j] = g * green;
-            crtc_gamma->blue[j] = g * blue;
-        }
-        XRRSetCrtcGamma(dpy, crtcxid, crtc_gamma);
-        XFree(crtc_gamma);
+    if (drmSetMaster(fd)) {
+        perror("SetMaster");
     }
-    XCloseDisplay(dpy);
+    drmModeRes *res = drmModeGetResources(fd);
+    if (res) {
+        int crtc_count = res->count_crtcs;
+    
+        const double red = get_red(temp) / (double)255;
+        const double green = get_green(temp) / (double)255;
+        const double blue = get_blue(temp) / (double)255;
+    
+        for (int i = 0; i < crtc_count; i++) {
+            int id = res->crtcs[i];
+            drmModeCrtc *crtc_info = drmModeGetCrtc(fd, id);
+            int ramp_size = crtc_info->gamma_size;
+    
+            uint16_t *r_gamma = calloc(ramp_size, sizeof(uint16_t));
+            uint16_t *g_gamma = calloc(ramp_size, sizeof(uint16_t));
+            uint16_t *b_gamma = calloc(ramp_size, sizeof(uint16_t));
+            for (int j = 0; j < ramp_size; j++) {
+                const double g = 65535.0 * j / ramp_size;
+                r_gamma[j] = g * red;
+                g_gamma[j] = g * green;
+                b_gamma[j] = g * blue;
+            }
+    
+            int err = drmModeCrtcSetGamma(fd, id, ramp_size, r_gamma, g_gamma, b_gamma);
+            if (err) {
+                perror("drmModeCrtcSetGamma");
+            }
+            free(r_gamma);
+            free(g_gamma);
+            free(b_gamma);
+            drmModeFreeCrtc(crtc_info);
+        }
+        drmModeFreeResources(res);
+    }
+    
+    if (drmDropMaster(fd)) {
+        perror("DropMaster");
+    }
+    close(fd);
+    return 0;
+}
 
-end:
-    /* Drop xauthority cookie */
-    unsetenv("XAUTHORITY");
+static void set_gamma(const char *display, const char *xauthority, int temp, int *err) {
+    drm_set_temperature(temp);
+}
+
+static int get_drm_gamma(void) {
+    int temp = -1;
+    int fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        perror("open");
+    }
+    drmModeRes *res = drmModeGetResources(fd);
+    if (res) {
+        int id = res->crtcs[0];
+        drmModeCrtc *crtc_info = drmModeGetCrtc(fd, id);
+        int ramp_size = crtc_info->gamma_size;
+        
+        uint16_t *red = calloc(ramp_size, sizeof(uint16_t));
+        uint16_t *green = calloc(ramp_size, sizeof(uint16_t));
+        uint16_t *blue = calloc(ramp_size, sizeof(uint16_t));
+        
+        int err = drmModeCrtcGetGamma(fd, id, ramp_size, red, green, blue);
+        if (err) {
+            fprintf(stderr, "drmModeCrtcSetGamma(%d) failed: %s\n", id, strerror(errno));
+        } else {
+            temp = get_temp(clamp(red[1], 255), clamp(blue[1], 255));
+        }
+        
+        free(red);
+        free(green);
+        free(blue);
+        
+        drmModeFreeCrtc(crtc_info);
+        drmModeFreeResources(res);
+    }
+    close(fd);
+    return temp;
 }
 
 static int get_gamma(const char *display, const char *xauthority, int *err) {
-    int temp = -1;
-    
-    /* set xauthority cookie */
-    setenv("XAUTHORITY", xauthority, 1);
-    
-    Display *dpy = XOpenDisplay(display);
-    if (dpy == NULL) {
-        perror("XopenDisplay");
-        *err = ENXIO;
-        goto end;
-    }
-    int screen = DefaultScreen(dpy);
-    Window root = RootWindow(dpy, screen);
-
-    XRRScreenResources *res = XRRGetScreenResourcesCurrent(dpy, root);
-
-    if (res->ncrtc > 0) {
-        XRRCrtcGamma *crtc_gamma = XRRGetCrtcGamma(dpy, res->crtcs[0]);
-        temp = get_temp(clamp(crtc_gamma->red[1], 255), clamp(crtc_gamma->blue[1], 255));
-        XFree(crtc_gamma);
-    }
-
-    if (temp <= 0) {
-        *err = 1;
-    }
-
-    XCloseDisplay(dpy);
-
-end:
-    /* Drop xauthority cookie */
-    unsetenv("XAUTHORITY");
-    return temp;
+    return get_drm_gamma();
 }
 
 #endif
