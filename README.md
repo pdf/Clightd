@@ -77,7 +77,7 @@ Note that passing an empty/NULL string as first parameter will make clightd use 
 | setbrightness | si | <ul><li>Backlight kernel interface</li><li>New brightness value</li></ul>| i | New setted brightness |✔|
 | getgamma | s | <ul><li>Video card to be used (eg: card0) or empty string</li></ul> | i | Current display gamma temp | |
 | setgamma | si | <ul><li>Video card to be used</li><li>New gamma value</li></ul> | i | New setted gamma temp |✔|
-| captureframes | si | <ul><li>video sysname(eg: Video0)</li><li>Number of frames</li></ul> | d | Average frames brightness, between 0.0 and 1.0 | ✔ |
+| captureframes | si | <ul><li>video sysname(eg: video0)</li><li>Number of frames</li></ul> | d | Average frames brightness, between 0.0 and 1.0 | ✔ |
 | getdpms | s | <ul><li>Video card to be used</li></ul> | i | Current dpms state | |
 | setdpms | si | <ul><li>Video card to be used</li><li>New dpms state</li></ul> | i | New setted dpms state | ✔ |
 
