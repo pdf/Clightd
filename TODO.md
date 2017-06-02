@@ -6,7 +6,8 @@
 - [x] fix getdpms
 - [x] understand how to check if connector is really active
 - [ ] create drm_utils c source file?
-- [ ] drop get/set dpms timeout (not supported on drm i guess) 
-- [ ] remove useless dep
-- [ ] remove useless arguments to interface methods
-- [ ] update readme (DRM will not work for now, it only works from tty. Let's hope in the future we will be able to get it working on X and wayland...)
+- [x] drop get/set dpms timeout (not supported on drm i guess) 
+- [x] remove useless dep
+- [x] remove useless arguments to interface methods
+- [ ] better error checking in dpms and gamma
+- [x] update readme (DRM will not work for now, it only works from tty. Let's hope in the future we will be able to get it working on X and wayland...)

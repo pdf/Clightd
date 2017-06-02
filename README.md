@@ -1,5 +1,12 @@
 # Clightd
 
+**THIS IS LIBDRM BRANCH**
+
+Libdrm allows clightd to consistently work on both X, wayland and even tty.  
+The downside is that setter methods will not work for now in X and wayland because becoming drmMaster is needed, but there can be only one drmMaster (Xserver/wayland compositor).  
+I really hope in future something like clightd can be possible through libdrm...  
+Note that getdpms_timeouts and setdpms_timeouts methods were removed as with libdrm it is not possible to retrieve them (as far as i can tell...).  
+
 [![Build Status](https://travis-ci.org/FedeDP/Clightd.svg?branch=master)](https://travis-ci.org/FedeDP/Clightd)
 
 Clightd is a bus interface that lets you easily set screen brightness, gamma temperature and get ambient brightness through webcam frames capture.
@@ -7,14 +14,7 @@ Clightd is a bus interface that lets you easily set screen brightness, gamma tem
 ## It currently needs:
 * libsystemd >= 221 (systemd/sd-bus.h)
 * libudev (libudev.h)
-
-### Needed only if built with gamma support:
-* libxrandr (X11/extensions/Xrandr.h)
-* libx11 (X11/Xlib.h)
-
-### Needed only if built with dpms support:
-* libxext (X11/extensions/Xext.h)
-* libx11 (X11/Xlib.h)
+* libdrm (xf86drm.h, xf86drmMode.h)
 
 ### Needed only if built with frame captures support:
 * linux-api-headers (linux/videodev2.h)
@@ -25,8 +25,6 @@ Clightd is a bus interface that lets you easily set screen brightness, gamma tem
 
 ## Build time switches:
 * DISABLE_FRAME_CAPTURES=1 (to disable frame captures support)
-* DISABLE_GAMMA=1 (to disable gamma support)
-* DISABLE_DPMS=1 (to disable dpms support)
 
 ## Build instructions:
 Build and install:
@@ -77,13 +75,11 @@ Note that passing an empty/NULL string as first parameter will make clightd use 
 | getmaxbrightness | s | Backlight kernel interface | i | Interface's max brightness | |
 | getactualbrightness | s | Backlight kernel interface | i | Interface's actual brightness | |
 | setbrightness | si | <ul><li>Backlight kernel interface</li><li>New brightness value</li></ul>| i | New setted brightness |✔|
-| getgamma | ss | <ul><li>env DISPLAY</li><li>env XAUTHORITY</li></ul> | i | Current display gamma temp | |
-| setgamma | ssi | <ul><li>env DISPLAY</li><li>env XAUTHORITY</li><li>New gamma value</li></ul> | i | New setted gamma temp |✔|
+| getgamma | s | Video card to be used (eg: card0) or empty string | i | Current display gamma temp | |
+| setgamma | si | <ul><li>Video card to be used</li><li>New gamma value</li></ul> | i | New setted gamma temp |✔|
 | captureframes | si | <ul><li>video sysname(eg: Video0)</li><li>Number of frames</li></ul> | d | Average frames brightness, between 0.0 and 1.0 | ✔ |
-| getdpms | ss | <ul><li>env DISPLAY</li><li>env XAUTHORITY</li></ul> | i | Current dpms state | |
-| setdpms | ssi | <ul><li>env DISPLAY</li><li>env XAUTHORITY</li><li>New dpms state</li></ul> | i | New setted dpms state | ✔ |
-| getdpms_timeouts | ss | <ul><li>env DISPLAY</li><li>env XAUTHORITY</li></ul> | iii | Dpms timeouts values |  |
-| setdpms_timeouts | ssiii | <ul><li>env DISPLAY</li><li>env XAUTHORITY</li><li>New dpms timeouts</li></ul> | iii | New dpms timeouts |  ✔ |
+| getdpms | s | Video card to be used | i | Current dpms state | |
+| setdpms | si | <ul><li>Video card to be used</li><li>New dpms state</li></ul> | i | New setted dpms state | ✔ |
 
 ## Arch AUR packages
 Clightd is available on AUR: https://aur.archlinux.org/packages/clightd-git/ .

@@ -18,8 +18,8 @@ INSTALL_PROGRAM = $(INSTALL) -m755
 INSTALL_DATA = $(INSTALL) -m644
 INSTALL_DIR = $(INSTALL) -d
 SRCDIR = src/
-LIBS = -lm $(shell pkg-config --libs libsystemd libudev)
-CFLAGS = $(shell pkg-config --cflags libsystemd libudev) -D_GNU_SOURCE -std=c99
+LIBS = -lm $(shell pkg-config --libs libsystemd libudev libdrm)
+CFLAGS = $(shell pkg-config --cflags libsystemd libudev libdrm) -D_GNU_SOURCE -std=c99
 
 ifeq (,$(findstring $(MAKECMDGOALS),"clean install uninstall"))
 
@@ -32,32 +32,6 @@ $(info Frames capturing support enabled.)
 else
 CFLAGS+=-DDISABLE_FRAME_CAPTURES
 $(info Frames capturing support disabled.)
-endif
-
-ifneq ("$(DISABLE_GAMMA)","1")
-GAMMA=$(shell pkg-config --silence-errors --libs x11 xrandr libdrm)
-ifneq ("$(GAMMA)","")
-CFLAGS+=-DGAMMA_PRESENT $(shell pkg-config --cflags x11 xrandr libdrm)
-LIBS+=$(GAMMA)
-$(info Gamma support enabled.)
-else
-$(info Gamma support disabled.)
-endif
-else
-$(info Gamma support disabled.)
-endif
-
-ifneq ("$(DISABLE_DPMS)","1")
-DPMS=$(shell pkg-config --silence-errors --libs x11 xext)
-ifneq ("$(DPMS)","")
-CFLAGS+=-DDPMS_PRESENT $(shell pkg-config --cflags x11 xext)
-LIBS+=$(DPMS)
-$(info DPMS support enabled.)
-else
-$(info DPMS support disabled.)
-endif
-else
-$(info DPMS support disabled.)
 endif
 
 endif

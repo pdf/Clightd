@@ -38,19 +38,13 @@ static const sd_bus_vtable clightd_vtable[] = {
     SD_BUS_METHOD("getbrightness", "s", "i", method_getbrightness, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("getmaxbrightness", "s", "i", method_getmaxbrightness, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("getactualbrightness", "s", "i", method_getactualbrightness, SD_BUS_VTABLE_UNPRIVILEGED),
-#ifdef GAMMA_PRESENT
     SD_BUS_METHOD("setgamma", "ssi", "i", method_setgamma, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("getgamma", "ss", "i", method_getgamma, SD_BUS_VTABLE_UNPRIVILEGED),
-#endif
 #ifndef DISABLE_FRAME_CAPTURES
     SD_BUS_METHOD("captureframes", "si", "d", method_captureframes, SD_BUS_VTABLE_UNPRIVILEGED),
 #endif
-#ifdef DPMS_PRESENT
-    SD_BUS_METHOD("getdpms", "ss", "i", method_getdpms, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("setdpms", "ssi", "i", method_setdpms, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("getdpms_timeouts", "ss", "iii", method_getdpms_timeouts, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("setdpms_timeouts", "ssiii", "iii", method_setdpms_timeouts, SD_BUS_VTABLE_UNPRIVILEGED),
-#endif
+    SD_BUS_METHOD("getdpms", "s", "i", method_getdpms, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("setdpms", "si", "i", method_setdpms, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_VTABLE_END
 };
 

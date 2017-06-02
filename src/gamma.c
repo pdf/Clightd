@@ -3,11 +3,9 @@
  * and to improvements made here: http://www.zombieprototypes.com/?p=210.
  **/
 
-#ifdef GAMMA_PRESENT
-
 #include "../inc/gamma.h"
 #include "../inc/polkit.h"
-#include <X11/extensions/Xrandr.h>
+#include "../inc/udev.h"
 #include <math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -21,13 +19,13 @@ static unsigned short get_red(int temp);
 static unsigned short get_green(int temp);
 static unsigned short get_blue(int temp);
 static int get_temp(const unsigned short R, const unsigned short B);
-static void set_gamma(const char *display, const char *xauthority, int temp, int *err);
-static int get_gamma(const char *display, const char *xauthority, int *err);
-
+static int drm_set_temperature(const int temp, const char *card);
+static int drm_get_temperature(const char *card);
 
 int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     int temp, error = 0;
-    const char *display = NULL, *xauthority = NULL;
+    const char *card = NULL;
+    struct udev_device *dev = NULL;
     
     if (!check_authorization(m)) {
         sd_bus_error_set_errno(ret_error, EPERM);
@@ -35,7 +33,7 @@ int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
     }
     
     /* Read the parameters */
-    int r = sd_bus_message_read(m, "ssi", &display, &xauthority, &temp);
+    int r = sd_bus_message_read(m, "si", &card, &temp);
     if (r < 0) {
         fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
         return r;
@@ -44,13 +42,19 @@ int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
     if (temp < 1000 || temp > 10000) {
         error = EINVAL;
     } else {
-        set_gamma(display, xauthority, temp, &error);
+        get_udev_device(card, "drm", &ret_error, &dev);
+        if (sd_bus_error_is_set(ret_error)) {
+            return -sd_bus_error_get_errno(ret_error);
+        }
+        
+        drm_set_temperature(temp, udev_device_get_devnode(dev));
+        udev_device_unref(dev);
     }
     if (error) {
         if (error == EINVAL) {
             sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Temperature value should be between 1000 and 10000.");
-        } else if (error == ENXIO) {
-            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Could not open X screen.");
+        } else {
+            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Failed to set screen temperature.");
         }
         return -error;
     }
@@ -61,22 +65,24 @@ int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
 
 int method_getgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     int error = 0;
-    const char *display = NULL, *xauthority = NULL;
+    const char *card = NULL;
+    struct udev_device *dev = NULL;
     
     /* Read the parameters */
-    int r = sd_bus_message_read(m, "ss", &display, &xauthority);
+    int r = sd_bus_message_read(m, "s", &card);
     if (r < 0) {
         fprintf(stderr, "Failed to parse parameters: %s\n", strerror(-r));
         return r;
     }
     
-    int temp = get_gamma(display, xauthority, &error);
+    get_udev_device(card, "drm", &ret_error, &dev);
+    if (sd_bus_error_is_set(ret_error)) {
+        return -sd_bus_error_get_errno(ret_error);
+    }
+    int temp = drm_get_temperature(udev_device_get_devnode(dev));
+    udev_device_unref(dev);
     if (error) {
-        if (error == ENXIO) {
-            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Could not open X screen.");
-        } else {
-            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Failed to get screen temperature.");
-        }
+        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Failed to get screen temperature.");
         return -error;
     }
     
@@ -172,8 +178,8 @@ static int get_temp(const unsigned short R, const unsigned short B) {
     return temperature;
 }
 
-int drm_set_temperature(int temp) {
-    int fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+int drm_set_temperature(const int temp, const char *card) {
+    int fd = open(card, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         perror("open");
     }
@@ -223,13 +229,9 @@ int drm_set_temperature(int temp) {
     return 0;
 }
 
-static void set_gamma(const char *display, const char *xauthority, int temp, int *err) {
-    drm_set_temperature(temp);
-}
-
-static int get_drm_gamma(void) {
+static int drm_get_temperature(const char *card) {
     int temp = -1;
-    int fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+    int fd = open(card, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         perror("open");
     }
@@ -260,9 +262,3 @@ static int get_drm_gamma(void) {
     close(fd);
     return temp;
 }
-
-static int get_gamma(const char *display, const char *xauthority, int *err) {
-    return get_drm_gamma();
-}
-
-#endif
