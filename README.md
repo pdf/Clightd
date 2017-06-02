@@ -48,12 +48,12 @@ Uninstall:
 
 ## Devel info
 Brightness related bus interface methods make all use of libudev to write and read current values (no fopen or other things like that).  
-If no syspath is passed as parameter to method calls, it uses first subsystem matching device that it finds through libudev.  
+All method calls use libudev to take correct device path, and fallback to first subsystem matching device if empty string is passed.  
 Strict error checking tries to enforce no issue of any kind.  
 
 Getgamma function supports 50-steps temperature values. It tries to fit temperature inside a 50 step (eg: it finds 5238, tries if 5200 or 5250 are fine too, and in case returns them. Otherwise, it returns 5238.)  
 
-Clightd makes use of polkit for setgamma, setbrightness and captureframes function. Only active sessions can call these methods.  
+Clightd makes use of polkit for setgamma, setbrightness, setdpms and captureframes function. Only active sessions can call these methods.  
 
 You may ask why did i developed this solution. The answer is quite simple: on linux there is no simple and unified way of changing screen brightness.  
 So, i thought it could be a good idea to develop a bus service that can be used by every other program.  
@@ -66,7 +66,7 @@ A clight replacement, using clightd, can be something like (pseudo-code):
     $ new_br = ambient_br * max_br
     $ busctl call org.clightd.backlight /org/clightd/backlight org.clightd.backlight setbrightness si "" new_br
 
-Note that passing an empty/NULL string as first parameter will make clightd use first subsystem matching device it finds (through libudev). It should be good to go in most cases.
+*Note that passing an empty/NULL string as first parameter will make clightd use first subsystem matching device it finds (through libudev).* It should be good to go in most cases.
 
 ## Bus interface
 | Method | IN | IN values | OUT | OUT values | Polkit restricted |
