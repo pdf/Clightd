@@ -71,14 +71,14 @@ Note that passing an empty/NULL string as first parameter will make clightd use 
 ## Bus interface
 | Method | IN | IN values | OUT | OUT values | Polkit restricted |
 |-|:-:|-|:-:|-|:-:|
-| getbrightness | s | Backlight kernel interface (eg: intel_backlight) or empty string | i | Interface's brightness | |
-| getmaxbrightness | s | Backlight kernel interface | i | Interface's max brightness | |
-| getactualbrightness | s | Backlight kernel interface | i | Interface's actual brightness | |
+| getbrightness | s | <ul><li>Backlight kernel interface (eg: intel_backlight) or empty string</li></ul> | i | Interface's brightness | |
+| getmaxbrightness | s | <ul><li>Backlight kernel interface</li></ul> | i | Interface's max brightness | |
+| getactualbrightness | s | <ul><li>Backlight kernel interface</li></ul> | i | Interface's actual brightness | |
 | setbrightness | si | <ul><li>Backlight kernel interface</li><li>New brightness value</li></ul>| i | New setted brightness |✔|
-| getgamma | s | Video card to be used (eg: card0) or empty string | i | Current display gamma temp | |
+| getgamma | s | <ul><li>Video card to be used (eg: card0) or empty string</li></ul> | i | Current display gamma temp | |
 | setgamma | si | <ul><li>Video card to be used</li><li>New gamma value</li></ul> | i | New setted gamma temp |✔|
 | captureframes | si | <ul><li>video sysname(eg: Video0)</li><li>Number of frames</li></ul> | d | Average frames brightness, between 0.0 and 1.0 | ✔ |
-| getdpms | s | Video card to be used | i | Current dpms state | |
+| getdpms | s | <ul><li>Video card to be used</li></ul> | i | Current dpms state | |
 | setdpms | si | <ul><li>Video card to be used</li><li>New dpms state</li></ul> | i | New setted dpms state | ✔ |
 
 ## Arch AUR packages
