@@ -10,8 +10,10 @@
 
 #define DPMS_DISABLED -1
 
-static void drm_get_dpms(int *state, const char *card);
-static void drm_set_dpms(int level, const char *card);
+static drmModeConnectorPtr get_active_connector(int fd, int connector_id);
+static drmModePropertyPtr drm_get_prop(int fd, drmModeConnectorPtr connector, const char *name);
+static void drm_get_dpms(int *state, const char *card, int *err);
+static void drm_set_dpms(int level, const char *card, int *err);
  
 static drmModeConnectorPtr get_active_connector(int fd, int connector_id) {
     drmModeConnectorPtr connector = drmModeGetConnector(fd, connector_id);
@@ -52,13 +54,15 @@ static drmModePropertyPtr drm_get_prop(int fd, drmModeConnectorPtr connector, co
  * 
  * Clightd returns -1 (DPMS_DISABLED) if dpms is disabled
  */
-static void drm_get_dpms(int *state, const char *card) {
+static void drm_get_dpms(int *state, const char *card, int *err) {
     *state = DPMS_DISABLED;
     drmModeConnectorPtr connector;
     
     int fd = open(card, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         perror("open");
+        *err = errno;
+        return;
     }
     drmModeRes *res = drmModeGetResources(fd);
     if (res) {
@@ -78,21 +82,27 @@ static void drm_get_dpms(int *state, const char *card) {
             }
         }
         drmModeFreeResources(res);
+    } else {
+        *err = errno;
     }
     close(fd);
 }
 
-static void drm_set_dpms(int level, const char *card) {
+static void drm_set_dpms(int level, const char *card, int *err) {
     drmModeConnectorPtr connector;
     drmModePropertyPtr prop;
     
     int fd = open(card, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         perror("open");
+        *err = errno;
+        return;
     }
     
     if (drmSetMaster(fd)) {
         perror("SetMaster");
+        *err = errno;
+        goto end;
     }
     
     drmModeRes *res = drmModeGetResources(fd);
@@ -115,13 +125,19 @@ static void drm_set_dpms(int level, const char *card) {
             drmModeFreeConnector(connector);
         }
         drmModeFreeResources(res);
+    } else {
+        *err = errno;
     }
     
     if (drmDropMaster(fd)) {
         perror("DropMaster");
+        *err = errno;
     }
-    
-    close(fd);
+
+end:
+    if (fd > 0) {
+        close(fd);
+    }
 }
 
 int method_getdpms(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -140,9 +156,14 @@ int method_getdpms(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         return -sd_bus_error_get_errno(ret_error);
     }
     
-    int dpms_state;
-    drm_get_dpms(&dpms_state, udev_device_get_devnode(dev));
+    int dpms_state, error = 0;
+    drm_get_dpms(&dpms_state, udev_device_get_devnode(dev), &error);
     udev_device_unref(dev);
+    
+    if (error) {
+        sd_bus_error_set_errno(ret_error, error);
+        return -error;
+    }
     
     if (dpms_state == DPMS_DISABLED) {
         printf("Dpms is currently disabled.\n");
@@ -155,7 +176,7 @@ int method_getdpms(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
 int method_setdpms(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     const char *card = NULL;
     struct udev_device *dev = NULL;
-    int level;
+    int level, error = 0;
     
     /* Require polkit auth */
     if (!check_authorization(m)) {
@@ -181,8 +202,14 @@ int method_setdpms(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         return -sd_bus_error_get_errno(ret_error);
     }
     
-    drm_set_dpms(level, udev_device_get_devnode(dev));
+    drm_set_dpms(level, udev_device_get_devnode(dev), &error);
     udev_device_unref(dev);
+    
+    if (error) {
+        sd_bus_error_set_errno(ret_error, error);
+        return -error;
+    }
+    
     printf("New dpms state: %d\n", level);
     return sd_bus_reply_method_return(m, "i", level);
 }

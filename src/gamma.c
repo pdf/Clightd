@@ -19,8 +19,8 @@ static unsigned short get_red(int temp);
 static unsigned short get_green(int temp);
 static unsigned short get_blue(int temp);
 static int get_temp(const unsigned short R, const unsigned short B);
-static int drm_set_temperature(const int temp, const char *card);
-static int drm_get_temperature(const char *card);
+static void drm_set_temperature(const int temp, const char *card, int *err);
+static int drm_get_temperature(const char *card, int *err);
 
 int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     int temp, error = 0;
@@ -47,15 +47,12 @@ int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
             return -sd_bus_error_get_errno(ret_error);
         }
         
-        drm_set_temperature(temp, udev_device_get_devnode(dev));
+        drm_set_temperature(temp, udev_device_get_devnode(dev), &error);
         udev_device_unref(dev);
     }
+    
     if (error) {
-        if (error == EINVAL) {
-            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Temperature value should be between 1000 and 10000.");
-        } else {
-            sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Failed to set screen temperature.");
-        }
+        sd_bus_error_set_errno(ret_error, error);
         return -error;
     }
     
@@ -79,10 +76,12 @@ int method_getgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
     if (sd_bus_error_is_set(ret_error)) {
         return -sd_bus_error_get_errno(ret_error);
     }
-    int temp = drm_get_temperature(udev_device_get_devnode(dev));
+    
+    int temp = drm_get_temperature(udev_device_get_devnode(dev), &error);
     udev_device_unref(dev);
+    
     if (error) {
-        sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FAILED, "Failed to get screen temperature.");
+        sd_bus_error_set_errno(ret_error, error);
         return -error;
     }
     
@@ -178,14 +177,18 @@ static int get_temp(const unsigned short R, const unsigned short B) {
     return temperature;
 }
 
-int drm_set_temperature(const int temp, const char *card) {
+void drm_set_temperature(const int temp, const char *card, int *err) {
     int fd = open(card, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         perror("open");
+        *err = errno;
+        return;
     }
         
     if (drmSetMaster(fd)) {
         perror("SetMaster");
+        *err = errno;
+        goto end;
     }
     drmModeRes *res = drmModeGetResources(fd);
     if (res) {
@@ -210,8 +213,9 @@ int drm_set_temperature(const int temp, const char *card) {
                 b_gamma[j] = g * blue;
             }
     
-            int err = drmModeCrtcSetGamma(fd, id, ramp_size, r_gamma, g_gamma, b_gamma);
-            if (err) {
+            int r = drmModeCrtcSetGamma(fd, id, ramp_size, r_gamma, g_gamma, b_gamma);
+            if (r) {
+                *err = errno;
                 perror("drmModeCrtcSetGamma");
             }
             free(r_gamma);
@@ -220,20 +224,26 @@ int drm_set_temperature(const int temp, const char *card) {
             drmModeFreeCrtc(crtc_info);
         }
         drmModeFreeResources(res);
+    } else {
+        *err = errno;
     }
-    
+
     if (drmDropMaster(fd)) {
         perror("DropMaster");
+        *err = errno;
     }
+
+end:
     close(fd);
-    return 0;
 }
 
-static int drm_get_temperature(const char *card) {
+static int drm_get_temperature(const char *card, int *err) {
     int temp = -1;
     int fd = open(card, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         perror("open");
+        *err = errno;
+        return temp;
     }
     drmModeRes *res = drmModeGetResources(fd);
     if (res) {
@@ -245,9 +255,10 @@ static int drm_get_temperature(const char *card) {
         uint16_t *green = calloc(ramp_size, sizeof(uint16_t));
         uint16_t *blue = calloc(ramp_size, sizeof(uint16_t));
         
-        int err = drmModeCrtcGetGamma(fd, id, ramp_size, red, green, blue);
-        if (err) {
-            fprintf(stderr, "drmModeCrtcSetGamma(%d) failed: %s\n", id, strerror(errno));
+        int r = drmModeCrtcGetGamma(fd, id, ramp_size, red, green, blue);
+        if (r) {
+            *err = errno;
+            perror("drmModeCrtcSetGamma");
         } else {
             temp = get_temp(clamp(red[1], 255), clamp(blue[1], 255));
         }
@@ -258,6 +269,8 @@ static int drm_get_temperature(const char *card) {
         
         drmModeFreeCrtc(crtc_info);
         drmModeFreeResources(res);
+    } else {
+        *err = errno;
     }
     close(fd);
     return temp;
