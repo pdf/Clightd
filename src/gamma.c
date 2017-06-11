@@ -6,13 +6,12 @@
 #include "../inc/gamma.h"
 #include "../inc/polkit.h"
 #include "../inc/udev.h"
+#include "../inc/drm_utils.h"
 #include <math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <xf86drm.h>
-#include <xf86drmMode.h>
 
 static unsigned short clamp(double x, double max);
 static unsigned short get_red(int temp);

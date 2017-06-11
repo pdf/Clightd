@@ -1,49 +1,17 @@
 #include "../inc/dpms.h"
 #include "../inc/polkit.h"
 #include "../inc/udev.h"
+#include "../inc/drm_utils.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <xf86drm.h>
-#include <xf86drmMode.h>
 
 #define DPMS_DISABLED -1
 
-static drmModeConnectorPtr get_active_connector(int fd, int connector_id);
-static drmModePropertyPtr drm_get_prop(int fd, drmModeConnectorPtr connector, const char *name);
 static void drm_get_dpms(int *state, const char *card, int *err);
 static void drm_set_dpms(int level, const char *card, int *err);
  
-static drmModeConnectorPtr get_active_connector(int fd, int connector_id) {
-    drmModeConnectorPtr connector = drmModeGetConnector(fd, connector_id);
-    
-    if (connector) {
-        if (connector->connection == DRM_MODE_CONNECTED 
-            && connector->count_modes > 0 && connector->encoder_id != 0) {
-            return connector;
-        }
-        drmModeFreeConnector(connector);
-    }
-    return NULL;
-}
-
-static drmModePropertyPtr drm_get_prop(int fd, drmModeConnectorPtr connector, const char *name) {
-    drmModePropertyPtr props;
-    
-    for (int i = 0; i < connector->count_props; i++) {
-        props = drmModeGetProperty(fd, connector->props[i]);
-        if (!props) {
-            continue;
-        }
-        if (!strcmp(props->name, name)) {
-            return props;
-        }
-        drmModeFreeProperty(props);
-    }
-    return NULL;
-}
-
 /*
  * state will be one of:
  * DPMS Extension Power Levels

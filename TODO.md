@@ -10,3 +10,5 @@
 - [x] remove useless arguments to interface methods
 - [x] better error checking in dpms and gamma
 - [x] update readme (DRM will not work for now, it only works from tty. Let's hope in the future we will be able to get it working on X and wayland...)
+- [x] create drm_utils source file
+- [ ] use systemd logind session interface "takeControl" and "releaseControl" isntead of drmSetMaster and dropMaaster (and takeDevice?)
