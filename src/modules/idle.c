@@ -7,6 +7,7 @@
 #include <X11/extensions/scrnsaver.h>
 #include <linux/limits.h>
 #include <math.h>
+#include "../build/idle-client-protocol.h"
 
 #define BUF_LEN (sizeof(struct inotify_event) + NAME_MAX + 1)
 

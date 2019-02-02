@@ -10,6 +10,9 @@
 #include <polkit.h>
 #include <X11/extensions/Xrandr.h>
 #include <math.h>
+#include <wayland-client-protocol.h>
+#include <wayland-client.h>
+#include "../build/wlr-gamma-control-unstable-v1-client-protocol.h"
 
 static int method_setgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
 static int method_getgamma(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
